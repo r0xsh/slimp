@@ -1,0 +1,19 @@
+{
+  "name": "sling",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./src/app.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/r0xsh/slimp.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/r0xsh/slimp/issues"
+  },
+  "homepage": "https://github.com/r0xsh/slimp#readme",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
