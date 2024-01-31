@@ -105,22 +105,22 @@ async function getCalendar(token, from, to) {
     // Fetch and process calendar data
     const calendarData = await fetchCalendar(session, from, to);
     const processedCalendar = calendarData
-        .filter(event => event.type === 'shift')
-        .map(event => {
-            const start = new Date(event.dtstart);
-            const end = new Date(event.dtend);
-            const day = new Date(start).setHours(0, 0, 0, 0);
+    .filter(event => event.type === 'shift')
+    .map(event => {
+        const start = new Date(event.dtstart);
+        const end = new Date(event.dtend);
+        const day = new Date(start).setHours(0, 0, 0, 0);
 
-            return {
-                id: event.id,
-                day: new Date(day),
-                notes: event.assigneeNotes,
-                start, end,
-                delta: Math.ceil((end - start) / 60000), // Calculate duration in minutes
-                user: getUserById(users, event.user.id),
-                task: getGroupById(groups, event.position.id)
-            };
-        }).sort(_calSort);
+        return {
+            id: event.id,
+            day: new Date(day),
+            notes: event.assigneeNotes,
+            start, end,
+            delta: Math.ceil((end - start) / 60000), // Calculate duration in minutes
+            user: getUserById(users, event.user.id),
+            task: getGroupById(groups, event.position.id)
+        };
+    }).sort(_calSort);
 
     return {
         data: processedCalendar,
