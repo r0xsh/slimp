@@ -21,6 +21,7 @@ async function fetchSession(token) {
 }
 
 async function fetchCalendar(session, from, to) {
+    to.setHours(23, 59, 59);
     const url = `https://api.getsling.com/v1/${session.org.id}/calendar/${session.org.id}/users/${session.id}?dates=${from.toISOString()}/${to.toISOString()}`;
     return await fetchData(url, session.token);
 }
@@ -106,6 +107,7 @@ async function getCalendar(token, from, to) {
     const calendarData = await fetchCalendar(session, from, to);
     const processedCalendar = calendarData
     .filter(event => event.type === 'shift')
+    .filter(event => event.hasOwnProperty('user'))
     .map(event => {
         const start = new Date(event.dtstart);
         const end = new Date(event.dtend);
