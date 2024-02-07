@@ -1,3 +1,5 @@
+import dayjs from 'dayjs'
+
 async function fetchData(url, token) {
     const response = await fetch(url, {
         method: 'GET',
@@ -107,18 +109,19 @@ async function getCalendar(token, from, to) {
     const calendarData = await fetchCalendar(session, from, to);
     const processedCalendar = calendarData
     .filter(event => event.type === 'shift')
-    .filter(event => event.hasOwnProperty('user'))
+    .filter(event => event.hasOwnProperty('user')) // Filter out shifts without user
     .map(event => {
-        const start = new Date(event.dtstart);
-        const end = new Date(event.dtend);
-        const day = new Date(start).setHours(0, 0, 0, 0);
+        const start = dayjs(event.dtstart)
+        const end = dayjs(event.dtend)
+        const day = dayjs(start).startOf('day')
 
         return {
             id: event.id,
-            day: new Date(day),
+            day: day.toDate(),
             notes: event.assigneeNotes,
-            start, end,
-            delta: Math.ceil((end - start) / 60000), // Calculate duration in minutes
+            start: start.toDate(),
+            end: end.toDate(),
+            delta: end.diff(start, 'minute'),
             user: getUserById(users, event.user.id),
             task: getGroupById(groups, event.position.id)
         };
