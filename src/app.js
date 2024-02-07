@@ -6,8 +6,13 @@ const port = 7676
 app.use(json())
 
 app.post('/csv', async (req, res) => {
-    const {token, from, to} = req.body
-    const cal = await sling.getCalendar(token, new Date(from), new Date(to))
+    const {token, from, to, divBy} = req.body
+    let cal = await sling.getCalendar(token, new Date(from), new Date(to))
+
+    if (Number.isInteger(divBy)) {
+        cal = sling.subDividDays(cal, divBy)
+    }
+
     const csv = sling.toCSV(cal)
     
     res.setHeader("Content-Type", "text/csv")
