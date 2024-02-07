@@ -16,6 +16,9 @@ app.post('/csv', async (req, res) => {
     res.end(csv)
 })
 
+// Used only in production environment
+app.get('/privacy.html', (_req, res) => res.sendFile('privacy.html', {root: './'}) )
+
 app.listen(port, () => {
     console.log(`Listening on port ${port}`)
 })
