@@ -27,5 +27,3 @@ app.get('/privacy.html', (_req, res) => res.sendFile('privacy.html', {root: './'
 app.listen(port, () => {
     console.log(`Listening on port ${port}`)
 })
-
-export default app
