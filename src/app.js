@@ -12,6 +12,7 @@ app.post('/csv', async (req, res) => {
     if (template === 'per_x_min') {
         cal = sling.subDividDays(cal, per_x_min)
     }
+
     const csv = sling.toCSV(cal)
     
     res.setHeader("Content-Type", "text/csv")
