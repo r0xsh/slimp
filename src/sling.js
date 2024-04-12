@@ -1,4 +1,6 @@
 import dayjs from "dayjs";
+import isSameOrBefore from "dayjs/plugin/isSameOrBefore.js";
+dayjs.extend(isSameOrBefore);
 
 async function fetchData(url, token) {
   const response = await fetch(url, {
@@ -140,12 +142,12 @@ async function getCalendar(token, from, to) {
 function subDividDays(cal, subDivideBy) {
   const divided = cal.data.reduce((acc, shift) => {
     for (
-      let date = shift.start;
-      date < shift.end;
-      date.setMinutes(date.getMinutes() + subDivideBy)
+      let date = dayjs(shift.start);
+      date.isSameOrBefore(dayjs(shift.end));
+      date = date.add(subDivideBy, "minute")
     ) {
-      const end = new Date(date.getTime() + subDivideBy * 60000);
-      const start = new Date(date);
+      const end = date.clone().add(subDivideBy, "minute").toDate();
+      const start = date.clone().toDate();
       acc.push({
         ...shift,
         day: start,
@@ -160,7 +162,7 @@ function subDividDays(cal, subDivideBy) {
   return { ...cal, data: divided };
 }
 
-function toCSV(data, div) {
+function toCSV(data) {
   if (!data || data.data.length === 0) {
     return "";
   }
