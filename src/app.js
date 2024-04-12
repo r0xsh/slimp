@@ -1,16 +1,16 @@
 import express, { json } from 'express'
 import sling from './sling.js'
+
 const app = express()
 const port = 7676
 
 app.use(json())
 
 app.post('/csv', async (req, res) => {
-    const {token, from, to, divBy} = req.body
+    const {token, from, to, template, per_x_min} = req.body
     let cal = await sling.getCalendar(token, new Date(from), new Date(to))
-
-    if (Number.isInteger(divBy)) {
-        cal = sling.subDividDays(cal, divBy)
+    if (template === 'per_x_min') {
+        cal = sling.subDividDays(cal, per_x_min)
     }
 
     const csv = sling.toCSV(cal)
@@ -21,8 +21,8 @@ app.post('/csv', async (req, res) => {
     res.end(csv)
 })
 
-// Used only in production environment
-app.get('/privacy.html', (_req, res) => res.sendFile('privacy.html', {root: './'}) )
+// Used for production
+app.get('/privacy.html', (_req, res) => res.sendFile('/usr/src/app/privacy.html'))
 
 app.listen(port, () => {
     console.log(`Listening on port ${port}`)
