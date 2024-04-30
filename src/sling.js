@@ -3,7 +3,8 @@ import isSameOrBefore from "dayjs/plugin/isSameOrBefore.js";
 dayjs.extend(isSameOrBefore);
 
 async function fetchData(url, token) {
-  const response = await fetch(url, {
+  console.debug(`Fetching ${url}`);
+  const response = await fetch(`https://api.getsling.com/v1${url}`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -15,18 +16,18 @@ async function fetchData(url, token) {
 }
 
 async function fetchConcise(session) {
-  const url = `https://api.getsling.com/v1/${session.org.id}/users/concise?user-fields=full`;
+  const url = `/${session.org.id}/users/concise?user-fields=full`;
   return await fetchData(url, session.token);
 }
 
 async function fetchSession(token) {
-  const url = "https://api.getsling.com/v1/account/session";
+  const url = "/account/session";
   return await fetchData(url, token);
 }
 
 async function fetchCalendar(session, from, to) {
   to.setHours(23, 59, 59);
-  const url = `https://api.getsling.com/v1/${session.org.id}/calendar/${session.org.id}/users/${session.id}?dates=${from.toISOString()}/${to.toISOString()}`;
+  const url = `/${session.org.id}/calendar/${session.org.id}/users/${session.id}?dates=${from.toISOString()}/${to.toISOString()}`;
   return await fetchData(url, session.token);
 }
 
@@ -104,7 +105,7 @@ async function getCalendar(token, from, to) {
   const groups = Object.entries(conciseUserData.groups)
     .map(([_, group]) => ({
       id: group.id,
-      name: group.name,
+      name: group.name.trim().replaceAll(',', '，'),
     }))
     .sort(_grpSort);
 
@@ -168,12 +169,20 @@ function toCSV(data) {
   }
 
   // Extract group names and prepare the header
-  const groupNames = data.groups.map((group) => group.name);
+  const groupNames = data.groups.reduce((acc, group, index) => {
+    Object.assign(acc, {
+      [group.id]: {
+        ...group, index
+      }
+    })
+    return acc;
+  }, {});
+  const groupNamesOnly = data.groups.map((group) => group.name);
   const firstCols = ["Name", "Day", "Start", "End"];
-  let csvLines = [[...firstCols, ...groupNames].join(",")]; // Header row
+  let csvLines = [[...firstCols, ...groupNamesOnly].join(",")]; // Header row
 
-  let previousUser = "",
-    previousDay = "";
+  let previousUser = "";
+  let previousDay = "";
   let currentRow = [];
 
   for (const record of data.data) {
@@ -189,7 +198,7 @@ function toCSV(data) {
 
       previousUser = record.user.id;
       previousDay = record.day;
-      currentRow = Array(groupNames.length + firstCols.length).fill("");
+      currentRow = Array(groupNamesOnly.length + firstCols.length).fill("");
     }
 
     // Fill the row with user details and day
@@ -199,8 +208,7 @@ function toCSV(data) {
     currentRow[3] = record.end.toLocaleTimeString();
 
     // Update the specific column for the task
-    const taskColumnIndex =
-      groupNames.indexOf(record.task.name) + firstCols.length;
+    const taskColumnIndex = groupNames[record.task.id].index + firstCols.length;
     if (Number.isInteger(currentRow[taskColumnIndex])) {
       currentRow[taskColumnIndex] += record.delta;
     } else {
