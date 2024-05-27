@@ -14,8 +14,8 @@
   },
   "homepage": "https://github.com/r0xsh/slimp#readme",
   "dependencies": {
-    "dayjs": "^1.11.10",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "luxon": "^3.4.4"
   },
   "scripts": {
     "start": "node src/app.js"

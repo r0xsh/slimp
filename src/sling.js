@@ -1,6 +1,4 @@
-import dayjs from "dayjs";
-import isSameOrBefore from "dayjs/plugin/isSameOrBefore.js";
-dayjs.extend(isSameOrBefore);
+import { Settings, DateTime } from "luxon";
 
 async function fetchData(url, token) {
   console.debug(`Fetching ${url}`);
@@ -26,8 +24,23 @@ async function fetchSession(token) {
 }
 
 async function fetchCalendar(session, from, to) {
-  to.setHours(23, 59, 59);
-  const url = `/${session.org.id}/calendar/${session.org.id}/users/${session.id}?dates=${from.toISOString()}/${to.toISOString()}`;
+  from = DateTime.utc(
+    from.getFullYear(),
+    from.getMonth() + 1,
+    from.getDate(),
+    0,
+    0,
+    0,
+  );
+  to = DateTime.utc(
+    to.getFullYear(),
+    to.getMonth() + 1,
+    to.getDate(),
+    23,
+    59,
+    59,
+  );
+  const url = `/${session.org.id}/calendar/${session.org.id}/users/${session.id}?dates=${from.toISO()}/${to.toISO()}`;
   return await fetchData(url, session.token);
 }
 
@@ -80,6 +93,10 @@ function delta_worked_in_timerange(shift, from, to) {
 async function getCalendar(token, from, to) {
   // Fetch session details
   const sessionData = await fetchSession(token);
+  if (sessionData?.user?.timezone) {
+    Settings.defaultZone = sessionData.user.timezone;
+  }
+  console.info(`User timezone: ${DateTime.local().zoneName}`);
   const session = {
     token: token,
     id: sessionData.user.id,
@@ -105,7 +122,7 @@ async function getCalendar(token, from, to) {
   const groups = Object.entries(conciseUserData.groups)
     .map(([_, group]) => ({
       id: group.id,
-      name: group.name.trim().replaceAll(',', '，'),
+      name: group.name.trim().replaceAll(",", "，"),
     }))
     .sort(_grpSort);
 
@@ -115,17 +132,17 @@ async function getCalendar(token, from, to) {
     .filter((event) => event.type === "shift")
     .filter((event) => event.hasOwnProperty("user")) // Filter out shifts without user
     .map((event) => {
-      const start = dayjs(event.dtstart);
-      const end = dayjs(event.dtend);
-      const day = dayjs(start).startOf("day");
+      const start = DateTime.fromISO(event.dtstart);
+      const end = DateTime.fromISO(event.dtend);
+      const day = DateTime.fromISO(start).startOf("day");
 
       return {
         id: event.id,
-        day: day.toDate(),
+        day,
         notes: event.assigneeNotes,
-        start: start.toDate(),
-        end: end.toDate(),
-        delta: end.diff(start, "minute"),
+        start,
+        end,
+        delta: end.diff(start, "minute").minutes,
         user: getUserById(users, event.user.id),
         task: getGroupById(groups, event.position.id),
       };
@@ -141,24 +158,25 @@ async function getCalendar(token, from, to) {
 }
 
 function subDividDays(cal, subDivideBy) {
-  const divided = cal.data.reduce((acc, shift) => {
-    for (
-      let date = dayjs(shift.start);
-      date.isSameOrBefore(dayjs(shift.end));
-      date = date.add(subDivideBy, "minute")
-    ) {
-      const end = date.clone().add(subDivideBy, "minute").toDate();
-      const start = date.clone().toDate();
-      acc.push({
-        ...shift,
-        day: start,
-        start,
-        end,
-        delta: delta_worked_in_timerange(shift, date, end),
-      });
-    }
-    return acc;
-  }, []);
+  const divided = cal.data
+    .reduce((acc, shift) => {
+      for (
+        let date = shift.start;
+        date <= shift.end;
+        date = date.plus({ minutes: subDivideBy })
+      ) {
+        const end = date.plus({ minutes: subDivideBy });
+        acc.push({
+          ...shift,
+          day: date,
+          start: date,
+          end,
+          delta: delta_worked_in_timerange(shift, date, end),
+        });
+      }
+      return acc;
+    }, [])
+    .filter((shift) => shift.delta > 0);
 
   return { ...cal, data: divided };
 }
@@ -172,9 +190,10 @@ function toCSV(data) {
   const groupNames = data.groups.reduce((acc, group, index) => {
     Object.assign(acc, {
       [group.id]: {
-        ...group, index
-      }
-    })
+        ...group,
+        index,
+      },
+    });
     return acc;
   }, {});
   const groupNamesOnly = data.groups.map((group) => group.name);
@@ -203,9 +222,9 @@ function toCSV(data) {
 
     // Fill the row with user details and day
     currentRow[0] = record.user.firstname + " " + record.user.lastname;
-    currentRow[1] = record.day.toLocaleDateString();
-    currentRow[2] = record.start.toLocaleTimeString();
-    currentRow[3] = record.end.toLocaleTimeString();
+    currentRow[1] = record.day.toFormat("D");
+    currentRow[2] = record.start.toFormat("tt");
+    currentRow[3] = record.end.toFormat("tt");
 
     // Update the specific column for the task
     const taskColumnIndex = groupNames[record.task.id].index + firstCols.length;
