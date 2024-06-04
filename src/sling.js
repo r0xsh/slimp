@@ -1,4 +1,4 @@
-import { Settings, DateTime } from "luxon";
+import { Settings, DateTime, Interval } from "luxon";
 
 async function fetchData(url, token) {
   console.debug(`Fetching ${url}`);
@@ -23,25 +23,76 @@ async function fetchSession(token) {
   return await fetchData(url, token);
 }
 
-async function fetchCalendar(session, from, to) {
-  from = DateTime.utc(
-    from.getFullYear(),
-    from.getMonth() + 1,
-    from.getDate(),
-    0,
-    0,
-    0,
-  );
-  to = DateTime.utc(
-    to.getFullYear(),
-    to.getMonth() + 1,
-    to.getDate(),
-    23,
-    59,
-    59,
+async function fetchCalendar(session, from, to, depth = 0) {
+  if (depth > 6) {
+    throw new Error("Maximum range exceeded");
+  }
+
+  if (from instanceof Date) {
+    from = DateTime.utc(
+      from.getFullYear(),
+      from.getMonth() + 1,
+      from.getDate(),
+      0,
+      0,
+      0,
+    );
+  }
+
+  if (to instanceof Date) {
+    to = DateTime.utc(
+      to.getFullYear(),
+      to.getMonth() + 1,
+      to.getDate(),
+      23,
+      59,
+      59,
+    );
+  }
+
+  const diff = Math.ceil(to.diff(from, "days").days);
+  if (diff < 0) {
+    throw new Error("Invalid date range");
+  }
+
+  if (diff > 55) {
+    console.info("Range too large, fetching recursively");
+    let interval = Interval.fromDateTimes(from, to);
+    let acc = [];
+    for (const i of buildIntervals(interval)) {
+      const cal = await fetchCalendar(session, i.from, i.to, depth + 1);
+      acc = acc.concat(cal);
+    }
+    return acc;
+  }
+
+  console.info(
+    `Fetching calendar from ${from.toISO()} to ${to.toISO()} (${diff} days)`,
   );
   const url = `/${session.org.id}/calendar/${session.org.id}/users/${session.id}?dates=${from.toISO()}/${to.toISO()}`;
   return await fetchData(url, session.token);
+}
+
+function* buildIntervals(interval) {
+  let cursor = interval.start;
+  while (cursor < interval.end) {
+    let endCursor = cursor.plus({ days: 53 });
+    if (endCursor > interval.end) {
+      endCursor = interval.end;
+    }
+    yield {
+      from: cursor.toUTC(),
+      to: endCursor
+        .set({
+          hours: 23,
+          minutes: 59,
+          seconds: 59,
+          milliseconds: 0,
+        })
+        .toUTC(),
+    };
+    cursor = cursor.plus({ days: 53 });
+  }
 }
 
 function getUserById(users, id) {
